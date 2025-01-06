@@ -1,0 +1,150 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local speaker = Players.LocalPlayer
+
+local buttonOn = false
+local bangLoop
+
+-- Attach/Detach functionality
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    local speakerPos = speaker.Character:WaitForChild("HumanoidRootPart").Position
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= speaker and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local playerPos = player.Character:FindFirstChild("HumanoidRootPart").Position
+            local distance = (speakerPos - playerPos).magnitude
+            if distance < shortestDistance then
+                closestPlayer = player
+                shortestDistance = distance
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local function attachToClosestPlayer()
+    local closestPlayer = getClosestPlayer()
+    if closestPlayer then
+        local closestPlayerRoot = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if closestPlayerRoot then
+            local offset = CFrame.new(0, 0, 1.1)
+            bangLoop = RunService.Stepped:Connect(function()
+                pcall(function()
+                    speaker.Character:WaitForChild("HumanoidRootPart").CFrame = closestPlayerRoot.CFrame * offset
+                end)
+            end)
+        end
+    end
+end
+
+local function detachFromPlayer()
+    if bangLoop then
+        bangLoop:Disconnect()
+        bangLoop = nil
+    end
+end
+
+-- UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = speaker:WaitForChild("PlayerGui")
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 180)  -- Reduced height
+frame.Position = UDim2.new(0.5, -100, 0.5, -90)  -- Adjusted position to center
+frame.AnchorPoint = Vector2.new(0.5, 0.5)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 15)
+corner.Parent = frame
+
+-- Stick to Player TextLabel
+local stickToPlayerText = Instance.new("TextLabel")
+stickToPlayerText.Size = UDim2.new(0, 180, 0, 20)  -- Reduced height for text
+stickToPlayerText.Position = UDim2.new(0.5, 0, 0.2, 0)  -- Closer to the top
+stickToPlayerText.AnchorPoint = Vector2.new(0.5, 0.5)
+stickToPlayerText.BackgroundTransparency = 1
+stickToPlayerText.TextColor3 = Color3.fromRGB(255, 255, 255)
+stickToPlayerText.Font = Enum.Font.GothamBold
+stickToPlayerText.TextSize = 16
+stickToPlayerText.Text = "Stick to Player"
+stickToPlayerText.TextWrapped = true
+stickToPlayerText.Parent = frame
+
+-- On Button
+local onButton = Instance.new("TextButton")
+onButton.Size = UDim2.new(0, 180, 0, 40)
+onButton.Position = UDim2.new(0.5, 0, 0.5, 0)  -- Adjusted to fit with text closer
+onButton.AnchorPoint = Vector2.new(0.5, 0.5)
+onButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+onButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+onButton.Font = Enum.Font.GothamBold
+onButton.TextSize = 16
+onButton.Text = "ON"
+onButton.Parent = frame
+
+local cornerOn = Instance.new("UICorner")
+cornerOn.CornerRadius = UDim.new(0, 8)
+cornerOn.Parent = onButton
+
+-- Off Button
+local offButton = Instance.new("TextButton")
+offButton.Size = UDim2.new(0, 180, 0, 40)
+offButton.Position = UDim2.new(0.5, 0, 0.75, 0)  -- Positioned below the "ON" button
+offButton.AnchorPoint = Vector2.new(0.5, 0.5)
+offButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+offButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+offButton.Font = Enum.Font.GothamBold
+offButton.TextSize = 16
+offButton.Text = "OFF"
+offButton.Parent = frame
+
+local cornerOff = Instance.new("UICorner")
+cornerOff.CornerRadius = UDim.new(0, 8)
+cornerOff.Parent = offButton
+
+-- Draggable functionality
+local dragging = false
+local dragInput, mousePos, framePos
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        mousePos = input.Position
+        framePos = frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - mousePos
+        frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Button Logic
+onButton.MouseButton1Click:Connect(function()
+    if not buttonOn then
+        attachToClosestPlayer()
+        buttonOn = true
+    end
+end)
+
+offButton.MouseButton1Click:Connect(function()
+    if buttonOn then
+        detachFromPlayer()
+        buttonOn = false
+    end
+end)
